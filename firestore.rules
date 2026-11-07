@@ -1,0 +1,96 @@
+rules_version = '2';
+
+// Memar website — who can read and write what.
+// Paste this into Firebase console → Firestore Database → Rules, then Publish.
+//
+// Visitors read the public content. Members are people with a record in /members, created the first
+// time they sign in with an invited email. Board members manage invites, access and the settings,
+// and are the only ones who can read the edit history.
+// Every content change must arrive together with its line in /log, written by the same person.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function meRef() { return /databases/$(database)/documents/members/$(request.auth.uid); }
+    function isMember() { return signedIn() && exists(meRef()); }
+    function me() { return get(meRef()).data; }
+    function isBoard() { return isMember() && me().isBoard == true; }
+    function can(section) { return isMember() && (me().isBoard == true || me().perms.get(section, false) == true); }
+
+    // an edit-history line written by this person in this same request (an old line can't be reused)
+    function newLog(id) {
+      let l = getAfter(/databases/$(database)/documents/log/$(id));
+      return l != null && l.data.uid == request.auth.uid && l.data.at == request.time;
+    }
+    // a change is stamped with its editor and arrives together with its edit-history line
+    function logged() {
+      return request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && newLog(request.resource.data.lastLog);
+    }
+    // a deletion's history line has a known id, so the rules can find it: del_<collection>_<document id>
+    function loggedDelete(col, id) { return newLog('del_' + col + '_' + id); }
+
+    match /events/{id} {
+      allow read: if true;
+      allow create, update: if can('events') && logged();
+      allow delete: if can('events') && loggedDelete('events', id);
+    }
+    match /issues/{id} {
+      allow read: if true;
+      allow create, update: if can('issues') && logged();
+      allow delete: if can('issues') && loggedDelete('issues', id);
+    }
+    match /episodes/{id} {
+      allow read: if true;
+      allow create, update: if can('episodes') && logged();
+      allow delete: if can('episodes') && loggedDelete('episodes', id);
+    }
+    match /team/{id} {
+      allow read: if true;
+      allow create, update: if can('team') && logged();
+      allow delete: if can('team') && loggedDelete('team', id);
+    }
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isBoard() && logged();
+    }
+
+    // the edit history: written by members about themselves, read by the board, never changed
+    match /log/{id} {
+      allow read: if isBoard();
+      allow create: if signedIn()
+        && existsAfter(meRef())
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.at == request.time;
+      allow update, delete: if false;
+    }
+
+    match /members/{uid} {
+      // members see each other; anyone signed in may look up their own record, which is how a first sign-in starts
+      allow read: if isMember() || (signedIn() && request.auth.uid == uid);
+      // first sign-in: the record must copy the invite for this person's verified email
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/invites/$(myEmail()))
+        && request.resource.data.email == myEmail()
+        && request.resource.data.isBoard == get(/databases/$(database)/documents/invites/$(myEmail())).data.isBoard
+        && request.resource.data.perms == get(/databases/$(database)/documents/invites/$(myEmail())).data.perms;
+      // members edit their own name, tag letters and colour; the board edits other people's access, with a history line
+      allow update: if (isBoard() && request.auth.uid != uid && logged())
+        || (signedIn() && request.auth.uid == uid
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBoard', 'perms', 'email']));
+      allow delete: if isBoard() && request.auth.uid != uid;
+    }
+
+    // invites are keyed by lower-case email
+    match /invites/{address} {
+      allow read: if isBoard() || (signedIn() && address == myEmail());
+      allow create, update: if isBoard() && newLog(request.resource.data.lastLog);
+      allow delete: if isBoard() || (signedIn() && address == myEmail());
+    }
+  }
+}

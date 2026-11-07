@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>الصفحة غير موجودة · معمار</title>
+<meta name="robots" content="noindex">
+<style>
+:root { --bg: #F3F1EB; --surface: #FFFFFF; --text: #111418; --muted: #51565B; --blue: #1E6AB6; --logo: #111418; --tri: #1E6AB6; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0A1C2F; --surface: #11304F; --text: #F3F1EB; --muted: #A9B9CB; --logo: #F3F1EB; --tri: #5996D9; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans Arabic', Tahoma, 'Segoe UI', sans-serif; padding: 24px max(16px, env(safe-area-inset-left, 0px)); }
+main { width: min(560px, 100%); background: var(--surface); border-radius: 28px; padding: 36px; display: flex; flex-direction: column; gap: 14px; }
+svg { width: 140px; height: auto; }
+h1 { margin: 0; font-size: 28px; line-height: 1.4; }
+p { margin: 0; color: var(--muted); line-height: 1.8; }
+.en { direction: ltr; text-align: left; font-family: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; }
+a { align-self: flex-start; display: inline-flex; align-items: center; min-height: 48px; padding: 0 22px; border-radius: 24px; background: var(--blue); color: #F3F1EB; font-weight: 700; text-decoration: none; }
+a:focus-visible { outline: 3px solid #5996D9; outline-offset: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <svg viewBox="170 200 969 170" role="img" aria-label="معمار"><g style="fill:var(--logo)"><path d="M170 200 L255 285 L340 200 L340 370 L170 370 Z"/><path d="M390 200 H532 L447 285 L532 370 H390 Z"/><path d="M582.5 200 L667.5 285 L752.5 200 V370 H582.5 Z"/><path d="M874 200 H880 L952 370 H803 Z"/><path d="M1003 200 H1080 A57 57 0 0 1 1137 257 A57 57 0 0 1 1098 311.07 L1139 370 H1003 Z"/></g><path style="fill:var(--tri)" d="M447 237 L495 285 L447 333 Z"/></svg>
+  <h1>هذه الصفحة غير موجودة</h1>
+  <p>ربما نُقلت، أو أن في الرابط خطأ.</p>
+  <p class="en" lang="en">This page isn’t here. It may have moved, or the link may be mistyped.</p>
+  <a id="home" href="/">الصفحة الرئيسية · Home</a>
+</main>
+<script>
+// The site may live at the domain's root or in a folder named after the repository (username.github.io/repo/).
+(function () {
+  var seg = location.pathname.split('/').filter(Boolean)[0];
+  if (!seg || /\./.test(seg)) return;
+  fetch('/' + seg + '/index.html', { method: 'HEAD' }).then(function (r) { if (r.ok) document.getElementById('home').href = '/' + seg + '/'; }).catch(function () {});
+})();
+</script>
+</body>
+</html>
