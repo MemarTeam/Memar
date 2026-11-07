@@ -413,6 +413,8 @@ html[dir="rtl"] .ep-row { padding: 12px 12px 12px 22px; }
 .m-offline p { color: var(--muted); }
 .stale-note { margin: 10px auto 0; max-width: 1360px; padding: 10px max(var(--gutter), 16px); font-size: 14px; color: var(--muted); }
 
+img.avatar { object-fit: cover; display: block; flex-shrink: 0; }
+
 /* appearance button */
 .pill-btn.round { width: 44px; padding: 0; }
 .mobile-menu .row [data-theme-toggle] { flex: 1; }

@@ -1,7 +1,7 @@
 // Members' area: sign-in, the menu, the content manager and the board's pages.
 // Each page is a function in ROUTES below; the tools live in announce.js and tools.js.
 import { lang, other, applyLang, setLang, L, t, shortStamp, num, day, month, time, weekday } from './i18n.js';
-import { backend, isLive, clearCache, SECTIONS, CONTENT, EVENT_TYPES, TAG_COLORS, splitEvents, byNumberDesc, byOrder, eventDate, safeUrl, initialsOf, SITE_OFFSET, SITE_TZ } from './data.js';
+import { backend, isLive, clearCache, safePhoto, SECTIONS, CONTENT, EVENT_TYPES, TAG_COLORS, splitEvents, byNumberDesc, byOrder, eventDate, safeUrl, initialsOf, SITE_OFFSET, SITE_TZ } from './data.js';
 import { esc, logo, tri, play, themeButton, bindTheme } from './ui.js';
 import { DEFAULT_STORY, withDefaults } from './story.js';
 import * as announce from './announce.js';
@@ -327,7 +327,8 @@ const FORMS = {
     { k: 'name', kind: 'pair', label: 'f_name', req: true },
     { k: 'role', kind: 'pair', label: 'f_role' },
     { k: 'order', kind: 'number', label: 'f_order', half: true },
-    { k: 'initials', kind: 'text', label: 'f_initials', half: true, hint: lang === 'ar' ? 'تُستخدم بدل الصورة. اتركها فارغة لتؤخذ من الاسم.' : 'Used instead of a photo. Leave empty to take them from the name.' }
+    { k: 'initials', kind: 'text', label: 'f_initials', half: true, hint: lang === 'ar' ? 'تُستخدم بدل الصورة. اتركها فارغة لتؤخذ من الاسم.' : 'Used instead of a photo. Leave empty to take them from the name.' },
+    { k: 'photo', kind: 'photo', label: 'f_photo', hint: t('photoHint') }
   ]
 };
 
@@ -347,6 +348,25 @@ function fieldHtml(f, v) {
         return `<div class="field"><label for="${id}-${lg}">${esc(t(lg === 'ar' ? 'f_ar' : 'f_en'))}</label>${inner}</div>`;
       };
       return `<fieldset class="m-fs" data-k="${f.k}"${f.req ? ' data-req' : ''}><legend>${lab}</legend>${hint}<div class="pair">${one('ar')}${one('en')}</div><span class="err" aria-live="polite"></span></fieldset>`;
+    }
+    case 'photo': {
+      const cur = safePhoto(v);
+      return `<div class="field m-photo" data-k="${f.k}">
+          <span class="m-photo-label" id="${id}-label">${lab}</span>${hint}
+          <div class="m-photo-row">
+            <div class="m-photo-stage${cur ? '' : ' empty'}">
+              <canvas width="480" height="480" tabindex="0" role="img" aria-labelledby="${id}-label" aria-describedby="${id}-help"></canvas>
+              <span class="m-photo-empty" aria-hidden="true">${esc(t('noPhoto'))}</span>
+            </div>
+            <div class="m-photo-ctrls">
+              <label class="btn btn-outline btn-sm m-file"><span>${esc(t(cur ? 'changePhoto' : 'choosePhoto'))}</span><input type="file" accept="image/*"></label>
+              <div class="m-zoom"><label for="${id}-zoom">${esc(t('zoom'))}</label><input type="range" id="${id}-zoom" min="1" max="3" step="0.01" value="1"${cur ? '' : ' disabled'}></div>
+              <p class="hint" id="${id}-help">${esc(t('dragHint'))}</p>
+              <button type="button" class="linklike" data-photo-remove${cur ? '' : ' hidden'}>${esc(t('removePhoto'))}</button>
+            </div>
+          </div>
+          <input type="hidden" name="${f.k}" value="${esc(cur)}">
+          <span class="err" aria-live="polite"></span></div>`;
     }
     case 'choice': {
       const opts = f.options();
@@ -376,6 +396,7 @@ function readForm(form, fields) {
     if (box) { box.querySelector('.err').textContent = msg; $$('input,textarea', box).forEach((i) => i.setAttribute('aria-invalid', 'true')); }
   };
   for (const f of fields) {
+    if (f.kind === 'photo') { out[f.k] = safePhoto(fd.get(f.k)); continue; }
     if (f.kind === 'pair' || f.kind === 'pairArea') {
       const v = { ar: String(fd.get(f.k + '.ar') || '').trim(), en: String(fd.get(f.k + '.en') || '').trim() };
       if (f.req && !v.ar && !v.en) fail(f.k, t('needOne'));
@@ -424,7 +445,7 @@ const SECTION = {
     add: 'addPerson', empty: ['emptyTeam', 'emptyTeamText', 'addFirstPerson'],
     sort: (l) => [...l].sort(byOrder),
     title: (x) => x.name,
-    lead: (x) => `<span class="m-avatar">${esc(x.initials || initialsOf(L(x.name)))}</span>`,
+    lead: (x) => (safePhoto(x.photo) ? `<img class="m-avatar" src="${esc(safePhoto(x.photo))}" alt="" width="48" height="48">` : `<span class="m-avatar">${esc(x.initials || initialsOf(L(x.name)))}</span>`),
     sub: (x) => L(x.role),
     toForm: (x) => x, fromForm: (v) => v
   }
@@ -492,6 +513,7 @@ function openForm(col, item) {
       </div>
     </form>`;
   document.body.appendChild(d);
+  $$('.m-photo', d).forEach(setupPhoto);
   const close = () => { d.close(); };
   d.addEventListener('close', () => d.remove());
   $$('[data-close]', d).forEach((b) => b.addEventListener('click', close));
@@ -512,6 +534,77 @@ function openForm(col, item) {
   d.showModal();
   const first = form.querySelector('input:not([type="radio"]), textarea');
   if (first) first.focus();
+}
+
+// ---------- a photo field: choose, place in the circle, saved as a small square picture ----------
+function setupPhoto(box) {
+  const cv = box.querySelector('canvas'), g = cv.getContext('2d');
+  const file = box.querySelector('input[type="file"]'), zoom = box.querySelector('input[type="range"]');
+  const hidden = box.querySelector('input[type="hidden"]'), rm = box.querySelector('[data-photo-remove]');
+  const stage = box.querySelector('.m-photo-stage'), err = box.querySelector('.err'), pick = box.querySelector('.m-file span');
+  const S = 480, OUT = 400;
+  let img = null, base = 1, z = 1, ox = 0, oy = 0;
+  const draw = () => {
+    g.fillStyle = '#DCE9F9'; g.fillRect(0, 0, S, S);
+    if (!img) return;
+    const w = img.naturalWidth * base * z, h = img.naturalHeight * base * z;
+    ox = Math.min(0, Math.max(S - w, ox)); oy = Math.min(0, Math.max(S - h, oy));   // the picture always fills the square
+    g.drawImage(img, ox, oy, w, h);
+  };
+  // a 400 px square, as WebP where the browser can make it, small enough to keep in the database
+  const commit = () => {
+    if (!img) { hidden.value = ''; return; }
+    const out = document.createElement('canvas'); out.width = OUT; out.height = OUT;
+    out.getContext('2d').drawImage(cv, 0, 0, OUT, OUT);
+    let type = 'image/webp', q = 0.85, url = out.toDataURL(type, q);
+    if (!url.startsWith('data:image/webp')) { type = 'image/jpeg'; url = out.toDataURL(type, q); }
+    while (url.length > 140000 && q > 0.45) { q -= 0.1; url = out.toDataURL(type, q); }
+    hidden.value = url;
+  };
+  const show = (on) => { stage.classList.toggle('empty', !on); zoom.disabled = !on; rm.hidden = !on; pick.textContent = t(on ? 'changePhoto' : 'choosePhoto'); };
+  const load = (src, fresh) => new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => {
+      img = im; base = Math.max(S / im.naturalWidth, S / im.naturalHeight); z = 1; zoom.value = '1';
+      ox = (S - im.naturalWidth * base) / 2; oy = (S - im.naturalHeight * base) / 2;
+      show(true); draw(); if (fresh) commit(); resolve();
+    };
+    im.onerror = reject;
+    im.src = src;
+  });
+  const zoomTo = (nz) => {
+    const before = base * z; z = Math.min(3, Math.max(1, nz)); const after = base * z;
+    ox = S / 2 - (S / 2 - ox) * after / before; oy = S / 2 - (S / 2 - oy) * after / before;
+    zoom.value = String(z); draw();
+  };
+  file.addEventListener('change', () => {
+    const f = file.files && file.files[0];
+    err.textContent = '';
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    load(url, true).catch(() => { err.textContent = t('photoError'); }).finally(() => { URL.revokeObjectURL(url); file.value = ''; });
+  });
+  zoom.addEventListener('input', () => zoomTo(+zoom.value));
+  zoom.addEventListener('change', commit);
+  let drag = null;
+  cv.addEventListener('pointerdown', (e) => { if (!img) return; drag = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const k = S / cv.getBoundingClientRect().width;
+    ox += (e.clientX - drag.x) * k; oy += (e.clientY - drag.y) * k; drag = { x: e.clientX, y: e.clientY }; draw();
+  });
+  const end = () => { if (drag) { drag = null; commit(); } };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  cv.addEventListener('keydown', (e) => {
+    if (!img) return;
+    const step = e.shiftKey ? 40 : 10, moves = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
+    if (moves[e.key]) { ox += moves[e.key][0]; oy += moves[e.key][1]; draw(); commit(); e.preventDefault(); }
+    else if (e.key === '+' || e.key === '=') { zoomTo(z + 0.1); commit(); e.preventDefault(); }
+    else if (e.key === '-') { zoomTo(z - 0.1); commit(); e.preventDefault(); }
+  });
+  rm.addEventListener('click', () => { img = null; hidden.value = ''; show(false); draw(); file.focus(); });
+  draw();
+  if (hidden.value) load(hidden.value, false).catch(() => { hidden.value = ''; show(false); });
 }
 
 // ---------- the edit history ----------

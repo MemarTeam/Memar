@@ -8,9 +8,11 @@ export const isLive = !!(firebaseConfig && firebaseConfig.apiKey);
 // everything from Firebase (it keeps the free daily limit far away), and so a dropped connection still
 // shows the last copy. Saving anything in the members' area clears it.
 const CACHE_KEY = 'memar-content-cache';
-export function readCache() { try { return JSON.parse(localStorage.getItem(CACHE_KEY)); } catch (e) { return null; } }
-export function writeCache(data) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data })); } catch (e) { /* storage full or blocked */ } }
-export function clearCache() { try { localStorage.removeItem(CACHE_KEY); } catch (e) { /* storage blocked */ } }
+// the team (with its photos) is only needed on the About page, so it has its own copy
+export const TEAM_CACHE = 'memar-team-cache';
+export function readCache(key = CACHE_KEY) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
+export function writeCache(data, key = CACHE_KEY) { try { localStorage.setItem(key, JSON.stringify({ at: Date.now(), data })); } catch (e) { /* storage full or blocked */ } }
+export function clearCache() { try { localStorage.removeItem(CACHE_KEY); localStorage.removeItem(TEAM_CACHE); } catch (e) { /* storage blocked */ } }
 export const CACHE_MS = 2 * 60 * 1000;
 
 let pending = null;
@@ -67,6 +69,12 @@ export function initialsOf(name) {
   const letters = words.length > 1 ? [first(words[0]), first(words[words.length - 1])] : [first(words[0])];
   const arabic = /[؀-ۿ]/.test(letters.join(''));
   return letters.join(arabic ? '‌' : '');
+}
+
+// a team photo is a small picture stored with its entry: only an image held as data is accepted
+export function safePhoto(u) {
+  const s = String(u || '');
+  return s.length < 300000 && /^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(s) ? s : '';
 }
 
 export function safeUrl(u) {

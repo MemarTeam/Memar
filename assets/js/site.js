@@ -2,7 +2,7 @@
 // club's content. A section with no content is left out of the menu and the home page; opened
 // directly, its page shows a designed "on its way" state instead.
 import { lang, other, applyLang, setLang, L, t, day, month, weekday, time, num } from './i18n.js';
-import { backend, isLive, EVENT_TYPES, splitEvents, byNumberDesc, byOrder, eventDate, safeUrl, readCache, writeCache, CACHE_MS } from './data.js';
+import { backend, isLive, EVENT_TYPES, splitEvents, byNumberDesc, byOrder, eventDate, safeUrl, safePhoto, readCache, writeCache, CACHE_MS, TEAM_CACHE } from './data.js';
 import { esc, logo, tri, play, themeButton, bindTheme } from './ui.js';
 import { renderStory } from './story.js';
 
@@ -470,7 +470,7 @@ function aboutPage(c, s) {
   const team = [...c.team].sort(byOrder);
   if (team.length) {
     $('#team-slot').innerHTML = section('h-team', esc(t('team')), `<div class="team">${team.map((p) => `<div class="person">
-        <span class="avatar" aria-hidden="true">${esc(p.initials || initialsFrom(L(p.name)))}</span>
+        ${safePhoto(p.photo) ? `<img class="avatar" src="${esc(safePhoto(p.photo))}" alt="" width="64" height="64" loading="lazy">` : `<span class="avatar" aria-hidden="true">${esc(p.initials || initialsFrom(L(p.name)))}</span>`}
         <div><div class="n">${esc(L(p.name))}</div><div class="r">${esc(L(p.role))}</div></div>
       </div>`).join('')}</div>`);
   }
@@ -585,17 +585,26 @@ async function main() {
   } else {
     try {
       be = await backend();
-      const [events, issues, episodes, team, settings, lk, story] = await Promise.all([
-        be.list('events'), be.list('issues'), be.list('episodes'), be.list('team'), be.settings(),
+      const [events, issues, episodes, settings, lk, story] = await Promise.all([
+        be.list('events'), be.list('issues'), be.list('episodes'), be.settings(),
         be.settings('look').catch(() => null), be.settings('story').catch(() => null)
       ]);
-      c = { events, issues, episodes, team, story }; s = settings || {}; look = lk;
+      c = { events, issues, episodes, team: [], story }; s = settings || {}; look = lk;
       if (isLive) writeCache({ c, s, look });
     } catch (e) {
       console.error(e);
       // no connection: the last saved copy if there is one, otherwise say so instead of showing empty pages
       if (cache) { ({ c, s, look } = cache.data); stale = true; }
       else { c = { events: [], issues: [], episodes: [], team: [] }; s = {}; failed = true; }
+    }
+  }
+  // the team and its photos are read only for the About page
+  if (page === 'about' && !failed) {
+    const tc = isLive ? readCache(TEAM_CACHE) : null;
+    if (tc && Date.now() - tc.at < CACHE_MS) c.team = tc.data;
+    else {
+      try { be = be || await backend(); c.team = await be.list('team'); if (isLive) writeCache(c.team, TEAM_CACHE); }
+      catch (e) { console.error(e); c.team = tc ? tc.data : []; }
     }
   }
   // the board's fonts and default appearance; remembered so the next page opens with them already applied
