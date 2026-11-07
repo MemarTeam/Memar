@@ -1,9 +1,10 @@
 // Members' area: sign-in, the menu, the content manager and the board's pages.
 // Each page is a function in ROUTES below; the tools live in announce.js and tools.js.
 import { lang, other, applyLang, setLang, L, t, shortStamp, num, day, month, time, weekday } from './i18n.js';
-import { backend, isLive, clearCache, safePhoto, SECTIONS, CONTENT, EVENT_TYPES, TAG_COLORS, splitEvents, byNumberDesc, byOrder, eventDate, safeUrl, initialsOf, SITE_OFFSET, SITE_TZ } from './data.js';
+import { backend, isLive, clearCache, safePhoto, lines, SECTIONS, CONTENT, EVENT_TYPES, TAG_COLORS, splitEvents, byNumberDesc, byOrder, eventDate, safeUrl, initialsOf, SITE_OFFSET, SITE_TZ } from './data.js';
 import { esc, logo, tri, play, themeButton, bindTheme } from './ui.js';
 import { DEFAULT_STORY, withDefaults } from './story.js';
+import { COPY, COPY_KEYS, ORIGINAL, tidy, writeCopy } from './copy.js';
 import * as announce from './announce.js';
 import * as tools from './tools.js';
 
@@ -178,7 +179,7 @@ function groups() {
   const content = CONTENT.filter(can).map((c) => ['content/' + c, t(c)]);
   if (content.length) g.push({ id: 'content', label: t('gContent'), items: content });
   g.push({ id: 'resources', label: t('gResources'), items: [['resources/brand', t('brand')]] });
-  if (S.me.isBoard) g.push({ id: 'admin', label: t('gAdmin'), items: [['admin/log', t('log')], ['admin/access', t('access')], ['admin/settings', t('settings')], ['admin/story', t('story')], ['admin/look', t('look')]] });
+  if (S.me.isBoard) g.push({ id: 'admin', label: t('gAdmin'), items: [['admin/log', t('log')], ['admin/access', t('access')], ['admin/settings', t('settings')], ['admin/story', t('story')], ['admin/text', t('pageText')], ['admin/look', t('look')]] });
   return g;
 }
 function renderShell() {
@@ -325,7 +326,7 @@ const FORMS = {
   ],
   team: [
     { k: 'name', kind: 'pair', label: 'f_name', req: true },
-    { k: 'role', kind: 'pair', label: 'f_role' },
+    { k: 'role', kind: 'pairArea', label: 'f_role', rows: 2, lines: true, hint: t('roleHint') },
     { k: 'order', kind: 'number', label: 'f_order', half: true },
     { k: 'initials', kind: 'text', label: 'f_initials', half: true, hint: lang === 'ar' ? 'تُستخدم بدل الصورة. اتركها فارغة لتؤخذ من الاسم.' : 'Used instead of a photo. Leave empty to take them from the name.' },
     { k: 'photo', kind: 'photo', label: 'f_photo', hint: t('photoHint') }
@@ -398,7 +399,8 @@ function readForm(form, fields) {
   for (const f of fields) {
     if (f.kind === 'photo') { out[f.k] = safePhoto(fd.get(f.k)); continue; }
     if (f.kind === 'pair' || f.kind === 'pairArea') {
-      const v = { ar: String(fd.get(f.k + '.ar') || '').trim(), en: String(fd.get(f.k + '.en') || '').trim() };
+      const get = (lg) => (f.lines ? lines(fd.get(f.k + '.' + lg)).join('\n') : String(fd.get(f.k + '.' + lg) || '').trim());
+      const v = { ar: get('ar'), en: get('en') };
       if (f.req && !v.ar && !v.en) fail(f.k, t('needOne'));
       out[f.k] = v;
     } else {
@@ -446,7 +448,7 @@ const SECTION = {
     sort: (l) => [...l].sort(byOrder),
     title: (x) => x.name,
     lead: (x) => (safePhoto(x.photo) ? `<img class="m-avatar" src="${esc(safePhoto(x.photo))}" alt="" width="48" height="48">` : `<span class="m-avatar">${esc(x.initials || initialsOf(L(x.name)))}</span>`),
-    sub: (x) => L(x.role),
+    sub: (x) => lines(L(x.role)).join(' · '),
     toForm: (x) => x, fromForm: (v) => v
   }
 };
@@ -619,6 +621,7 @@ function logText(x) {
     case 'removeMember': return t('a_removeMember', { x: title });
     case 'settings': return t('a_settings');
     case 'story': return t('a_story');
+    case 'text': return t('a_text');
     case 'look': return t('a_look');
     case 'export': return t('a_export', { x: title });
     default: return x.action;
@@ -875,6 +878,70 @@ async function storyPage(main) {
   }
 }
 
+// ---------- the words on the public pages (board only) ----------
+async function textPage(main) {
+  const saved = tidy(((await S.be.settings('text')) || {}).copy);
+  const lg = lang === 'ar' ? 0 : 1;
+  const cur = (k, l) => (saved[k] && saved[k][l]) || ORIGINAL[l][k];
+  const box = (k, l) => {
+    const o = ORIGINAL[l][k], id = `pt-${k}-${l}`, long = ORIGINAL.ar[k].length > 70 || ORIGINAL.en[k].length > 90;
+    const attrs = `id="${id}" name="${k}.${l}" dir="${l === 'ar' ? 'rtl' : 'ltr'}" lang="${l}" maxlength="600"`;
+    return `<div class="field"><label for="${id}">${esc(t(l === 'ar' ? 'f_ar' : 'f_en'))}</label>${long
+      ? `<textarea ${attrs} rows="${o.length > 150 ? 4 : 3}">${esc(cur(k, l))}</textarea>`
+      : `<input type="text" ${attrs} value="${esc(cur(k, l))}">`}</div>`;
+  };
+  main.innerHTML = head(esc(t('pageText')), esc(t('pageTextHint')), `<a class="btn btn-outline btn-sm" href="../index.html" target="_blank" rel="noopener">${esc(t('viewOnSite'))}</a>`) +
+    `<form class="m-text" novalidate>
+      <div class="filters m-tpages" role="group" aria-label="${esc(t('ptPages'))}">${COPY.map((g, i) => `<button type="button" class="chip" aria-pressed="${i === 0}" data-g="${g.id}">${esc(g.name[lg])}</button>`).join('')}</div>
+      ${COPY.map((g, i) => `<section class="m-card m-tgroup" data-g="${g.id}"${i ? ' hidden' : ''} aria-labelledby="ptg-${g.id}">
+        <div class="m-tgroup-head"><h2 id="ptg-${g.id}">${esc(g.name[lg])}</h2><a class="link-line" href="../${g.href}" target="_blank" rel="noopener">${esc(t('viewOnSite'))}</a></div>
+        ${g.items.map(([k, label, also]) => `<div class="m-trow"><fieldset class="m-fs m-titem" data-k="${k}"><legend>${esc(label[lg])}</legend>
+          ${also ? `<span class="hint">${esc(t('ptAlso', { x: also[lg] }))}</span>` : ''}
+          <div class="pair">${box(k, 'ar')}${box(k, 'en')}</div>
+          <div class="m-tstate"><span class="m-tchanged" hidden>${esc(t('ptChanged'))}</span><button type="button" class="linklike" data-restore-one hidden>${esc(t('ptRestore'))}</button></div>
+        </fieldset></div>`).join('')}
+      </section>`).join('')}
+      <div class="m-btnrow"><button type="submit" class="btn btn-primary btn-sm">${esc(t('save'))}${tri()}</button><button type="button" class="btn btn-outline btn-sm" data-restore-all>${esc(t('restoreText'))}</button>
+        <span class="m-sig">${tagHtml(S.me, 'sm')}<span>${esc(t('sigNote'))}</span></span></div>
+    </form>`;
+  const form = $('.m-text', main);
+  const val = (k, l) => form.elements[`${k}.${l}`].value.replace(/\s+/g, ' ').trim();
+  const state = (fs) => {
+    const k = fs.dataset.k;
+    const changed = ['ar', 'en'].some((l) => val(k, l) && val(k, l) !== ORIGINAL[l][k]);
+    $('.m-tchanged', fs).hidden = !changed; $('[data-restore-one]', fs).hidden = !changed;
+    const chip = $(`.m-tpages [data-g="${fs.closest('.m-tgroup').dataset.g}"]`, form);
+    chip.classList.toggle('has-change', $$('.m-tchanged', fs.closest('.m-tgroup')).some((x) => !x.hidden));
+  };
+  const refill = (k) => ['ar', 'en'].forEach((l) => { form.elements[`${k}.${l}`].value = ORIGINAL[l][k]; });
+  $$('.m-titem', form).forEach((fs) => {
+    state(fs);
+    fs.addEventListener('input', () => state(fs));
+    $('[data-restore-one]', fs).addEventListener('click', () => { refill(fs.dataset.k); state(fs); form.elements[`${fs.dataset.k}.${lang}`].focus(); });
+  });
+  $$('.m-tpages .chip', form).forEach((b) => b.addEventListener('click', () => {
+    $$('.m-tpages .chip', form).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    $$('.m-tgroup', form).forEach((s) => { s.hidden = s.dataset.g !== b.dataset.g; });
+  }));
+  $('[data-restore-all]', form).addEventListener('click', () => { COPY_KEYS.forEach(refill); $$('.m-titem', form).forEach(state); toast(t('ptAllRestored')); });
+  form.addEventListener('submit', (e) => { e.preventDefault(); once(form, saveText); });
+  async function saveText() {
+    // every key is written, so a change that was removed is cleared in the saved copy too
+    const copy = {};
+    COPY_KEYS.forEach((k) => {
+      copy[k] = {};
+      ['ar', 'en'].forEach((l) => { const v = val(k, l).slice(0, 600); copy[k][l] = v && v !== ORIGINAL[l][k] ? v : ''; });
+    });
+    try {
+      await S.be.saveSettings({ copy }, entry('text', 'text'), 'text');
+      writeCopy(copy);
+      COPY_KEYS.forEach((k) => ['ar', 'en'].forEach((l) => { if (!val(k, l)) form.elements[`${k}.${l}`].value = ORIGINAL[l][k]; }));
+      $$('.m-titem', form).forEach(state);
+      toast(t('saved'));
+    } catch (err) { toast(errText(err), true); }
+  }
+}
+
 // ---------- fonts and appearance (board only) ----------
 const FONT_CHOICES = {
   arHead: ['Noto Kufi Arabic', 'Reem Kufi', 'Cairo', 'Tajawal', 'Almarai', 'Readex Pro', 'Alexandria', 'El Messiri', 'Changa', 'IBM Plex Sans Arabic', 'Amiri'],
@@ -992,6 +1059,7 @@ const ROUTES = {
   'admin/access': { need: 'access', render: accessPage, title: () => t('access') },
   'admin/settings': { need: 'settings', render: settingsPage, title: () => t('settings') },
   'admin/story': { need: 'settings', render: storyPage, title: () => t('story') },
+  'admin/text': { need: 'settings', render: textPage, title: () => t('pageText') },
   'admin/look': { need: 'settings', render: lookPage, title: () => t('look') },
   profile: { render: profilePage, title: () => t('profile') },
   'g/tools': { need: 'tools', render: groupPage('tools'), title: () => t('gTools') },

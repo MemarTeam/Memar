@@ -14,8 +14,12 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const BLANK = {
   header: { en: 'Memar Workshop', ar: 'ورشة معمار' },
   lines: [{ en: '', ar: '' }],
-  link: '', scan: { en: 'Scan to register', ar: 'امسح للتسجيل' }, hold: 7, eventId: ''
+  link: '', scan: { en: 'Scan to register', ar: 'امسح للتسجيل' }, hold: 7, eventId: '', palette: 'blueprint'
 };
+// the colour versions; an event starts in the colour of its type tag on the site
+const PALETTES = ['blueprint', 'courtyard', 'clay', 'ink'];
+const TYPE_PALETTE = { workshop: 'blueprint', designathon: 'courtyard', talk: 'clay', visit: 'ink' };
+const paletteOf = (cfg) => (PALETTES.includes(cfg.palette) ? cfg.palette : 'blueprint');
 const HEADERS = {
   workshop: { en: 'Memar Workshop', ar: 'ورشة معمار' },
   designathon: { en: 'Memar Designathon', ar: 'ديزايناثون معمار' },
@@ -36,7 +40,7 @@ function fromEvent(e) {
     lines: lines.slice(0, MAX_LINES),
     link: safeUrl(e.registerUrl) || '',
     scan: { en: 'Scan to register', ar: 'امسح للتسجيل' },
-    hold: 7, eventId: e.id
+    hold: 7, eventId: e.id, palette: TYPE_PALETTE[e.type] || 'blueprint'
   };
 }
 function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.lines && s.header) return s; } catch (e) { /* storage blocked */ } return clone(BLANK); }
@@ -46,7 +50,7 @@ function store(cfg) { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } ca
 function forFilm(cfg) {
   const both = (v) => ({ en: (v.en || v.ar || '').trim() || ' ', ar: (v.ar || v.en || '').trim() || ' ' });
   const lines = cfg.lines.filter((l) => (l.en || l.ar || '').trim()).map(both);
-  return { header: both(cfg.header), lines: lines.length ? lines : [{ en: ' ', ar: ' ' }], link: cfg.link || ' ', scan: both(cfg.scan), hold: Number(cfg.hold) || 7, fonts: filmFonts() };
+  return { header: both(cfg.header), lines: lines.length ? lines : [{ en: ' ', ar: ' ' }], link: cfg.link || ' ', scan: both(cfg.scan), hold: Number(cfg.hold) || 7, fonts: filmFonts(), palette: paletteOf(cfg) };
 }
 // the film's text uses the site's body fonts, so a change of identity reaches the videos too
 function filmFonts() {
@@ -86,6 +90,9 @@ export async function mount(el, ctx, params) {
       <form class="an-form m-card" novalidate>
         ${events.length ? `<div class="field"><label for="an-ev">${esc(t('genFrom'))}</label>
           <select id="an-ev"><option value="">${esc(t('genNone'))}</option>${events.map((e) => `<option value="${esc(e.id)}"${e.id === cfg.eventId ? ' selected' : ''}>${esc(L(e.title))}</option>`).join('')}</select></div>` : ''}
+        <fieldset class="m-fs"><legend>${esc(t('anColor'))}</legend>
+          <div class="m-choices">${PALETTES.map((n) => { const c = (window.MemarWorkshop.PALETTES || {})[n] || {}; return `<label class="m-choice"><input type="radio" name="palette" value="${n}"><span><i class="an-sw" aria-hidden="true" style="background:linear-gradient(135deg, ${c.bright} 50%, ${c.night} 50%)"></i>${esc(t('pal_' + n))}</span></label>`; }).join('')}</div>
+          <span class="hint">${esc(t('anColorHint'))}</span></fieldset>
         <fieldset class="m-fs"><legend>${esc(t('topPill'))}</legend><div class="pair">
           <div class="field"><label for="an-h-ar">${esc(t('f_ar'))}</label><input type="text" id="an-h-ar" data-k="header.ar" dir="rtl" lang="ar" maxlength="40"></div>
           <div class="field"><label for="an-h-en">${esc(t('f_en'))}</label><input type="text" id="an-h-en" data-k="header.en" dir="ltr" lang="en" maxlength="40"></div>
@@ -117,6 +124,7 @@ export async function mount(el, ctx, params) {
   const set = (k, v) => { const ps = k.split('.'); let o = cfg; ps.slice(0, -1).forEach((p) => { o = o[p]; }); o[ps[ps.length - 1]] = v; };
   function fill() {
     form.querySelectorAll('[data-k]').forEach((i) => { i.value = get(i.dataset.k) || ''; });
+    form.querySelectorAll('[name="palette"]').forEach((r) => { r.checked = r.value === paletteOf(cfg); });
     const hold = form.querySelector('#an-hold'); hold.value = cfg.hold; form.querySelector('#an-hold-out').textContent = t('holdS', { n: num(cfg.hold) });
     drawLines();
   }
@@ -134,10 +142,12 @@ export async function mount(el, ctx, params) {
     const i = e.target;
     if (i.dataset.k) set(i.dataset.k, i.dataset.k === 'link' ? i.value.trim() : i.value);
     else if (i.dataset.l) cfg.lines[+i.closest('.an-line').dataset.i][i.dataset.l] = i.value;
+    else if (i.name === 'palette') { if (cfg.palette === i.value) return; cfg.palette = i.value; }
     else if (i.id === 'an-hold') { cfg.hold = +i.value; form.querySelector('#an-hold-out').textContent = t('holdS', { n: num(cfg.hold) }); }
     else return;
     changed();
   });
+  form.addEventListener('change', (e) => { if (e.target.name === 'palette' && cfg.palette !== e.target.value) { cfg.palette = e.target.value; changed(); } });
   form.addEventListener('click', (e) => {
     const rm = e.target.closest('[data-rm]');
     if (rm) { cfg.lines.splice(+rm.closest('.an-line').dataset.i, 1); drawLines(); changed(); }
@@ -148,7 +158,7 @@ export async function mount(el, ctx, params) {
   const sel = form.querySelector('#an-ev');
   if (sel) sel.addEventListener('change', () => {
     const ev = events.find((x) => x.id === sel.value);
-    cfg = ev ? fromEvent(ev) : { ...clone(BLANK), header: cfg.header };
+    cfg = ev ? fromEvent(ev) : { ...clone(BLANK), header: cfg.header, palette: paletteOf(cfg) };
     fill(); changed();
   });
   function linkCheck() {
@@ -237,7 +247,7 @@ export async function mount(el, ctx, params) {
     if (!canEncode()) { status.textContent = t('exportFail'); status.className = 'an-status warn'; return; }
     exporting = true; exportBtn.disabled = true; bar.style.width = '0%';
     const slug = (cfg.header.en || 'announcement').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'announcement';
-    const name = `${slug}.mp4`;
+    const name = `${slug}${paletteOf(cfg) === 'blueprint' ? '' : '-' + paletteOf(cfg)}.mp4`;
     try {
       const { blob, mux } = await encode((p) => { bar.style.width = (p * 100).toFixed(1) + '%'; status.textContent = t('exporting', { p: Math.round(p * 100) }); status.className = 'an-status'; });
       await saveBlob(blob, name);

@@ -8,12 +8,13 @@ Plain HTML, CSS and JavaScript: no build step and nothing to install. Hosted fre
 
 | Path | What it is |
 |---|---|
-| `index.html`, `about.html`, `events.html`, `magazine.html`, `podcast.html`, `join.html` | The public pages. Arabic text is in the HTML; the English sits beside it in `data-en`. |
+| `index.html`, `about.html`, `events.html`, `magazine.html`, `podcast.html`, `join.html` | The public pages. The original Arabic words are in the HTML with the English beside them in `data-en`; words the board changes in Page text replace them when the page loads. |
 | `members/index.html` | The members' area (sign-in, content, tools, board pages). |
 | `assets/css/site.css` | Colours (light and dark), fonts and every public-site component. |
 | `assets/css/members.css` | The members' area. |
 | `assets/js/boot.js` | Runs first on every page: light or dark, and the fonts the board chose. |
-| `assets/js/i18n.js` | Language switch and every interface string, in Arabic and English. |
+| `assets/js/i18n.js` | Language switch and every string in Arabic and English, including the original page words. |
+| `assets/js/copy.js` | The page words the board can change (Page text), and how their changes are applied. |
 | `assets/js/data.js` | The one way into the data. Picks Firebase or the demo. |
 | `assets/js/fb.js` | Firebase: sign-in, content, members, edit history. |
 | `assets/js/demo.js` | Demo data kept in the browser, used until Firebase is set up. |
@@ -21,7 +22,7 @@ Plain HTML, CSS and JavaScript: no build step and nothing to install. Hosted fre
 | `assets/js/story.js` | The logo story on the About page, with its default text. |
 | `assets/js/members.js` | The members' area pages. |
 | `assets/js/announce.js`, `assets/js/tools.js` | The announcement maker, the QR code maker and the brand kit. |
-| `assets/js/memar-film-core.js`, `assets/js/workshop-core.js` | The logo film and the announcement film. |
+| `assets/js/memar-film-core.js`, `assets/js/workshop-core.js` | The logo film and the announcement film (in four colours: Blueprint, Courtyard, Clay, Ink). |
 | `firestore.rules` | Who can read and write what. Paste into Firebase. |
 
 ## Running it

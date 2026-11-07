@@ -77,6 +77,11 @@ export function safePhoto(u) {
   return s.length < 300000 && /^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(s) ? s : '';
 }
 
+// a person can hold several positions, written one per line
+export function lines(s) {
+  return String(s || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+}
+
 export function safeUrl(u) {
   const s = String(u || '').trim();
   return /^(https?:|mailto:)/i.test(s) ? s : '';

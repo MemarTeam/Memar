@@ -2,7 +2,8 @@
 // club's content. A section with no content is left out of the menu and the home page; opened
 // directly, its page shows a designed "on its way" state instead.
 import { lang, other, applyLang, setLang, L, t, day, month, weekday, time, num } from './i18n.js';
-import { backend, isLive, EVENT_TYPES, splitEvents, byNumberDesc, byOrder, eventDate, safeUrl, safePhoto, readCache, writeCache, CACHE_MS, TEAM_CACHE } from './data.js';
+import { useCopy, applyStatic, readCopy, writeCopy } from './copy.js';
+import { backend, isLive, EVENT_TYPES, splitEvents, byNumberDesc, byOrder, eventDate, safeUrl, safePhoto, lines, readCache, writeCache, CACHE_MS, TEAM_CACHE } from './data.js';
 import { esc, logo, tri, play, themeButton, bindTheme } from './ui.js';
 import { renderStory } from './story.js';
 
@@ -203,7 +204,7 @@ function podBand(eps, s, onPodcastPage) {
       <div>
         <div class="mono" style="font-size:13px;color:var(--blue-tint)">PODCAST</div>
         <${onPodcastPage ? 'h1' : 'h2'} class="title" id="pod-title" lang="en">The Architecture Show</${onPodcastPage ? 'h1' : 'h2'}>
-        <p>${esc(lang === 'ar' ? 'حوارات قصيرة مع الأساتذة والطلاب والخريجين ومعماريين من خارج الجامعة.' : 'Short conversations with professors, students, graduates and architects from outside the university.')}</p>
+        <p>${esc(t('podLede'))}</p>
         ${listen || all ? `<div class="actions">${listen}${all}</div>` : ''}
       </div>
       <div class="eps">${shown.map((p, k) => epLink(p, k === 0)).join('')}</div>
@@ -219,26 +220,26 @@ function whatWeDo(c, headTag = 'h2') {
   return `<div class="what">
       <article class="wcard">
         <div class="mark" aria-hidden="true"><div style="width:96px;height:44px;border-radius:22px;background:var(--blue)"></div><div style="width:44px;height:44px;border-radius:22px;background:var(--blue-tint)"></div></div>
-        <${headTag === 'h2' ? 'h3' : 'h3'}>${ar ? 'ورش ومحاضرات' : 'Workshops and talks'}</${headTag === 'h2' ? 'h3' : 'h3'}>
-        <p>${ar ? 'لقاءات مع معماريين من مجالات مختلفة، وورش تبني مهارات يحتاجها الاستوديو.' : 'Meetings with architects from different fields, and workshops that build the skills the studio needs.'}</p>
+        <h3>${esc(t('wWorkT'))}</h3>
+        <p>${esc(t('wWork'))}</p>
         <div class="foot">${has.events ? go('events.html', t('seeEvents')) : soon(t('firstEventSoon'), 'var(--accent)', 'var(--accent)')}</div>
       </article>
       <article class="wcard">
         <div class="mark" aria-hidden="true"><div class="mono" style="width:56px;height:56px;border-radius:28px;background:var(--green);color:var(--paper);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600">${esc(num(48))}</div><div style="width:70px;height:44px;border-radius:22px;border:1.5px solid var(--green)"></div></div>
-        <h3>${ar ? 'الديزايناثون' : 'Designathons'}</h3>
-        <p>${ar ? 'مسابقات تصميم مكثفة لمدة ٤٨ ساعة بمشاركة طلاب من جامعات أخرى.' : 'Intense 48-hour design competitions with students from other universities.'}</p>
+        <h3>${esc(t('wDesignT'))}</h3>
+        <p>${esc(t('wDesign'))}</p>
         <div class="foot">${has.designathon ? go('events.html', t('seeEvents')) : soon(t('soon'), 'var(--green-ink)', 'var(--green-ink)')}</div>
       </article>
       <article class="wcard">
         <div class="mark" aria-hidden="true" style="align-items:flex-end"><div style="width:40px;height:56px;border-radius:3px;background:var(--night)"></div><div style="width:40px;height:56px;border-radius:3px;border:1.5px dashed rgba(17,20,24,0.4)"></div></div>
         <h3>${ar ? 'مجلة <bdi lang="en">Vanguard</bdi>' : 'Vanguard magazine'}</h3>
-        <p>${ar ? 'مجلة شهرية بالنصائح والمعرفة والمحتوى التفاعلي لرفع جودة أعمال الطلاب.' : 'A monthly magazine of tips, knowledge and interactive content to raise the level of student work.'}</p>
+        <p>${esc(t('magLede'))}</p>
         <div class="foot">${has.issues ? go('magazine.html', t('seeIssues')) : soon(t('firstIssue'), 'var(--text)', 'var(--text)')}</div>
       </article>
       <article class="wcard is-night">
         <div class="mark" aria-hidden="true"><div style="width:56px;height:56px;border-radius:28px;background:var(--blue);display:flex;align-items:center;justify-content:center">${play(20, '#F3F1EB')}</div><div style="width:84px;height:44px;border-radius:22px;border:1.5px solid rgba(89,150,217,0.6)"></div></div>
         <h3 lang="en" dir="ltr" class="disp" style="text-align:start">The Architecture Show</h3>
-        <p>${ar ? 'حوارات قصيرة مع الأساتذة والطلاب والخريجين ومعماريين من خارج الجامعة.' : 'Short conversations with professors, students, graduates and architects from outside the university.'}</p>
+        <p>${esc(t('podLede'))}</p>
         <div class="foot">${has.episodes ? go('podcast.html', t('seeEps'), true) : soon(t('firstEp'), 'var(--blue-light)', 'var(--blue-tint)')}</div>
       </article>
     </div>`;
@@ -267,7 +268,7 @@ function joinBand(s) {
   return `<section class="band is-light" aria-labelledby="join-title">
       <div>
         <h2 id="join-title">${esc(t('joinUs'))}</h2>
-        <p>${ar ? 'شارك في الفعاليات، أو اكتب للمجلة، أو تطوّع مع الفريق.' : 'Take part in events, write for the magazine, or volunteer with the team.'}</p>
+        <p>${esc(t('joinLede'))}</p>
         <div class="actions"><a class="btn btn-primary" href="join.html">${ar ? 'انضم الآن' : 'Join now'}${tri()}</a></div>
       </div>
       <div class="motif" aria-hidden="true">
@@ -331,8 +332,7 @@ function home(c, s) {
   }
   const missing = !c.events.length || !c.issues.length || !c.episodes.length;
   if (missing) {
-    out += section('h-what', esc(lang === 'ar' ? 'ماذا نقدّم' : 'What we do'), whatWeDo(c),
-      `<p>${esc(lang === 'ar' ? 'أربعة أنشطة، تُفتح أقسامها في الموقع مع أول محتوى' : 'Four activities. Each gets its own page here once its first content is out.')}</p>`);
+    out += section('h-what', esc(t('whatTitle')), whatWeDo(c), `<p>${esc(t('whatLede'))}</p>`);
   }
   if (eps.length) out += wrapSec(podBand(eps, s, false));
   if (!upcoming.length) out += wrapSec(followBand(s, !eps.length, c.events.length ? t('followText') : null));
@@ -471,7 +471,7 @@ function aboutPage(c, s) {
   if (team.length) {
     $('#team-slot').innerHTML = section('h-team', esc(t('team')), `<div class="team">${team.map((p) => `<div class="person">
         ${safePhoto(p.photo) ? `<img class="avatar" src="${esc(safePhoto(p.photo))}" alt="" width="64" height="64" loading="lazy">` : `<span class="avatar" aria-hidden="true">${esc(p.initials || initialsFrom(L(p.name)))}</span>`}
-        <div><div class="n">${esc(L(p.name))}</div><div class="r">${esc(L(p.role))}</div></div>
+        <div><div class="n">${esc(L(p.name))}</div>${lines(L(p.role)).map((r) => `<div class="r">${esc(r)}</div>`).join('')}</div>
       </div>`).join('')}</div>`);
   }
   $('#band-slot').innerHTML = wrapSec(joinBand(s));
@@ -496,20 +496,20 @@ function joinPage(c, s) {
   $('#dyn').innerHTML = wrapSec(`<h2 class="sr">${esc(t('waysToJoin'))}</h2><div class="ways">
       <article class="way">
         <div class="mark" aria-hidden="true"><div style="width:84px;height:40px;border-radius:20px;background:var(--blue)"></div><div style="width:40px;height:40px;border-radius:20px;background:var(--blue-tint)"></div></div>
-        <h3>${ar ? 'تطوّع مع الفريق' : 'Volunteer with the team'}</h3>
-        <p>${ar ? 'نظّم الفعاليات معنا، أو صمّم، أو صوّر، أو حرّر. لا يُشترط مستوى دراسي معيّن.' : 'Help us organize events, design, photograph or edit. Students of every year are welcome.'}</p>
+        <h3>${esc(t('wayVolT'))}</h3>
+        <p>${esc(t('wayVol'))}</p>
         <div class="foot">${joinU ? `<a class="btn btn-primary btn-sm" ${ext(joinU)}>${ar ? 'انضم الآن' : 'Join now'}${tri()}</a>` : mail ? `<a class="btn btn-primary btn-sm" href="${esc(mail)}">${ar ? 'راسلنا' : 'Email us'}${tri()}</a>` : ''}</div>
       </article>
       <article class="way">
         <div class="mark" aria-hidden="true" style="align-items:flex-end"><div style="width:30px;height:42px;border-radius:3px;background:var(--night)"></div><div style="width:30px;height:42px;border-radius:3px;border:1.5px dashed rgba(17,20,24,0.4)"></div></div>
-        <h3>${ar ? 'اكتب للمجلة' : 'Write for the magazine'}</h3>
-        <p>${ar ? 'أرسل مقالًا أو مشروعًا أو رسمًا أو صورة لعدد قادم من <bdi lang="en">Vanguard</bdi>.' : 'Send an article, a project, a drawing or a photo for a coming issue of Vanguard.'}</p>
+        <h3>${esc(t('wayWriteT'))}</h3>
+        <p>${esc(t('wayWrite'))}</p>
         <div class="foot">${submit ? `<a class="btn btn-outline btn-sm" ${ext(submit)}>${esc(t('submitNext'))}</a>` : mail ? `<a class="btn btn-outline btn-sm" href="${esc(mail)}">${ar ? 'راسلنا' : 'Email us'}</a>` : ''}</div>
       </article>
       <article class="way">
         <div class="mark" aria-hidden="true"><div style="width:40px;height:40px;border-radius:20px;background:var(--sand)"></div><div style="width:84px;height:40px;border-radius:20px;border:1.5px solid var(--ink)"></div></div>
-        <h3>${ar ? 'تعال إلى فعالية' : 'Come to an event'}</h3>
-        <p>${ar ? 'فعالياتنا مفتوحة لطلاب العمارة. تابعنا لتعرف بموعد الفعالية القادمة.' : 'Our events are open to architecture students. Follow us to hear when the next one is.'}</p>
+        <h3>${esc(t('wayComeT'))}</h3>
+        <p>${esc(t('wayCome'))}</p>
         <div class="foot">${c.events.length ? `<a class="btn btn-outline btn-sm" href="events.html">${esc(t('seeEvents'))}</a>` : safeUrl(s.instagram) ? `<a class="btn btn-outline btn-sm" ${ext(safeUrl(s.instagram))}>${esc(t('followInsta'))}</a>` : ''}</div>
       </article>
     </div>`);
@@ -518,8 +518,8 @@ function joinPage(c, s) {
   [['instagram', 'Instagram'], ['tiktok', 'TikTok'], ['linkedin', 'LinkedIn']].forEach(([k, n]) => { if (safeUrl(s[k])) contact.push(`<a class="btn btn-ghost-light btn-sm" ${ext(safeUrl(s[k]))} lang="en">${n}</a>`); });
   if (contact.length) {
     $('#dyn').insertAdjacentHTML('beforeend', wrapSec(`<section class="band" aria-labelledby="contact-title">
-        <div><h2 id="contact-title">${ar ? 'تواصل معنا' : 'Get in touch'}</h2>
-        <p>${ar ? 'لفكرة فعالية أو تعاون أو سؤال، راسلنا أو اكتب لنا على حساباتنا.' : 'For an event idea, a collaboration or a question, email us or message us on our accounts.'}</p>
+        <div><h2 id="contact-title">${esc(t('contactT'))}</h2>
+        <p>${esc(t('contact'))}</p>
         <div class="actions">${contact.join('')}</div></div>
         <div class="motif" aria-hidden="true"><div class="p" style="width:120px;background:var(--blue)"></div>${tri()}<div class="p" style="width:84px;border:1.5px solid rgba(89,150,217,0.6)"></div></div>
       </section>`));
@@ -575,26 +575,30 @@ function staleNote() {
 // ---------- start ----------
 async function main() {
   applyLang();
+  // the board's words (Page text), as last seen, before anything else is drawn
+  useCopy(readCopy());
+  applyStatic();
+  document.documentElement.classList.remove('copy-wait');
   const cached = readNav();
   header(cached);
   mobileMenu(cached, {});
-  let be, c, s, look, failed = false, stale = false;
+  let be, c, s, look, text, failed = false, stale = false;
   const cache = isLive ? readCache() : null;
   if (cache && Date.now() - cache.at < CACHE_MS) {
-    ({ c, s, look } = cache.data);
+    ({ c, s, look, text } = cache.data);
   } else {
     try {
       be = await backend();
-      const [events, issues, episodes, settings, lk, story] = await Promise.all([
+      const [events, issues, episodes, settings, lk, story, tx] = await Promise.all([
         be.list('events'), be.list('issues'), be.list('episodes'), be.settings(),
-        be.settings('look').catch(() => null), be.settings('story').catch(() => null)
+        be.settings('look').catch(() => null), be.settings('story').catch(() => null), be.settings('text').catch(() => null)
       ]);
-      c = { events, issues, episodes, team: [], story }; s = settings || {}; look = lk;
-      if (isLive) writeCache({ c, s, look });
+      c = { events, issues, episodes, team: [], story }; s = settings || {}; look = lk; text = (tx && tx.copy) || {};
+      if (isLive) writeCache({ c, s, look, text });
     } catch (e) {
       console.error(e);
       // no connection: the last saved copy if there is one, otherwise say so instead of showing empty pages
-      if (cache) { ({ c, s, look } = cache.data); stale = true; }
+      if (cache) { ({ c, s, look, text } = cache.data); stale = true; }
       else { c = { events: [], issues: [], episodes: [], team: [] }; s = {}; failed = true; }
     }
   }
@@ -609,6 +613,7 @@ async function main() {
   }
   // the board's fonts and default appearance; remembered so the next page opens with them already applied
   if (window.MemarLook && !failed) window.MemarLook.update(look);
+  if (text) { useCopy(text); writeCopy(text); applyStatic(); }
   lastSettings = s;
   const has = failed ? readNav() : { events: c.events.length > 0, issues: c.issues.length > 0, episodes: c.episodes.length > 0 };
   if (!failed) writeNav(has);

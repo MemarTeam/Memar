@@ -70,6 +70,16 @@
 
   setTheme(resolve());
   applyFonts(cached);
+  // The page files hold the original Arabic words. English, and any words the board changed (Page text), are put
+  // in by the page script; until it runs, those words wait hidden so the page doesn't change in front of the visitor.
+  if (!root.hasAttribute('data-members')) {
+    var en = false;
+    try { var q = new URLSearchParams(location.search).get('lang'); en = q ? q === 'en' : get('memar-lang') === 'en'; } catch (e) { /* old browser */ }
+    if (en || get('memar-copy')) {
+      root.classList.add('copy-wait');
+      setTimeout(function () { root.classList.remove('copy-wait'); }, 2500);
+    }
+  }
   try {
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
       if (!get(THEME_KEY) && boardDefault() === 'auto') setTheme(resolve());

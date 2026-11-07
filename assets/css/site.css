@@ -53,6 +53,8 @@
   --gutter: 40px;
   color-scheme: light;
 }
+/* English and the board's own words are swapped in by the page script; until then they wait unseen (boot.js) */
+html.copy-wait [data-t], html.copy-wait [data-en] { visibility: hidden; }
 html[lang="en"] {
   --font-head: var(--f-en-head), var(--f-ar-head), 'Arial Black', Arial, sans-serif;
   --font-body: var(--f-en-body), var(--f-ar-body), 'Helvetica Neue', Arial, sans-serif;
@@ -318,7 +320,8 @@ html[dir="rtl"] .pod .title { text-align: right; }
 .person { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--surface); border-radius: 22px; min-width: 0; }
 .avatar { width: 64px; height: 64px; border-radius: 32px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--paper); flex-shrink: 0; background: var(--blue); }
 .person .n { font-weight: 700; }
-.person .r { font-size: 14px; color: var(--muted); }
+.person .r { font-size: 14px; color: var(--muted); line-height: 1.45; }
+.person .r + .r { margin-top: 5px; }
 .prose { display: flex; flex-direction: column; gap: 16px; font-size: 18px; line-height: 1.9; max-width: 40em; }
 
 /* join */

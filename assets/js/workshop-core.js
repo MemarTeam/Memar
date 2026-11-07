@@ -5,7 +5,15 @@
   'use strict';
 
   var W0 = 1920, H0 = 1080, CX = 960, CY = 540;
-  var COL = { radar: '#1E6AB6', paper: '#F3F1EB', night: '#082F54', deep: '#0E3D69', bright: '#1E6AB6', light: '#5996D9', sand: '#EBDBC9', sandHi: '#F8F0E6' };
+  // Colour versions, each from the identity: the opening dial (radar), the ground (night), the three pill fills
+  // (deep, bright, light), the warm sand pills, and paper for text and the QR card. Text on bright pills is paper;
+  // text on light and sand pills is the ground colour, so each pair keeps good contrast.
+  var PALETTES = {
+    blueprint: { radar: '#1E6AB6', paper: '#F3F1EB', night: '#082F54', deep: '#0E3D69', bright: '#1E6AB6', light: '#5996D9', sand: '#EBDBC9', sandHi: '#F8F0E6' },
+    courtyard: { radar: '#267450', paper: '#F3F1EB', night: '#0D2B20', deep: '#164A36', bright: '#267450', light: '#7DBA98', sand: '#EBDBC9', sandHi: '#F8F0E6' },
+    clay: { radar: '#A85334', paper: '#F3F1EB', night: '#33170E', deep: '#62301F', bright: '#A85334', light: '#E39E7E', sand: '#EBDBC9', sandHi: '#F8F0E6' },
+    ink: { radar: '#2B3036', paper: '#F3F1EB', night: '#111418', deep: '#262A30', bright: '#51565B', light: '#B9BEC4', sand: '#EBDBC9', sandHi: '#F8F0E6' }
+  };
   var FONT_EN = '"IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, sans-serif';
   var FONT_AR = '"IBM Plex Sans Arabic", "IBM Plex Sans", Tahoma, sans-serif';
   // the grid at the reference's scale: about four rows fill the frame
@@ -57,6 +65,7 @@
 
   function create(cfg) {
     cfg = cfg || {};
+    var COL = PALETTES[cfg.palette] || PALETTES.blueprint;
     var mctx = document.createElement('canvas').getContext('2d');
     var cache = {};
     // cfg.fonts { en, ar } lets the site's chosen fonts replace the identity's
@@ -511,5 +520,5 @@
     };
   }
 
-  global.MemarWorkshop = { create: create, W: W0, H: H0 };
+  global.MemarWorkshop = { create: create, W: W0, H: H0, PALETTES: PALETTES };
 })(typeof window !== 'undefined' ? window : this);

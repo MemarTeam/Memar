@@ -55,7 +55,7 @@ function seed(state) {
       { id: 'p1', number: 1, title: { ar: 'لماذا العمارة؟', en: 'Why Architecture?' }, guest: { ar: 'طلاب من السنة الأولى', en: 'first-year students' }, url: 'https://open.spotify.com/', duration: '24:30', date: at(-46, 12).slice(0, 10), ...stamp('m1', 47 * day) }
     ],
     team: [
-      { id: 't1', name: { ar: 'عضو ١', en: 'Member 1' }, role: { ar: 'رئيس الفريق', en: 'Team lead' }, order: 1, initials: 'ع١', ...stamp('m1', 20 * day) },
+      { id: 't1', name: { ar: 'عضو ١', en: 'Member 1' }, role: { ar: 'رئيس الفريق\nمؤسس مشارك وعضو المجلس', en: 'Team lead\nCo-founder & Board member' }, order: 1, initials: 'ع١', ...stamp('m1', 20 * day) },
       { id: 't2', name: { ar: 'عضو ٢', en: 'Member 2' }, role: { ar: 'الفعاليات', en: 'Events' }, order: 2, initials: 'ع٢', ...stamp('m1', 20 * day) },
       { id: 't3', name: { ar: 'عضو ٣', en: 'Member 3' }, role: { ar: 'البودكاست', en: 'Podcast' }, order: 3, initials: 'ع٣', ...stamp('m1', 20 * day) },
       { id: 't4', name: { ar: 'عضو ٤', en: 'Member 4' }, role: { ar: 'تحرير المجلة', en: 'Magazine editor' }, order: 4, initials: 'ع٤', ...stamp('m1', 20 * day) }
